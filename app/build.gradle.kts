@@ -6,7 +6,6 @@ plugins {
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
-id("com.google.gms.google-services")
 }
 
 android {
@@ -87,13 +86,6 @@ googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.W
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
-implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
-
-implementation("com.google.firebase:firebase-auth")
-implementation("com.google.firebase:firebase-firestore")
-implementation("com.google.firebase:firebase-storage")
-implementation("com.google.firebase:firebase-messaging")
-implementation("com.google.firebase:firebase-functions")
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)

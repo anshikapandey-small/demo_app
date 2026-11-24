@@ -40,7 +40,14 @@ This project is provisioned with Firebase Authentication (Google Sign-In via Jet
 
 ## Building the APK
 
+Build locally with the Gradle wrapper (JDK 21, Gradle 9.3.1):
+
 ```bash
-gradle assembleDebug
+./gradlew assembleDebug
 ```
+
 Debug APK output is generated under `app/build/outputs/apk/debug/`.
+
+### GitHub Actions CI
+The workflow at `.github/workflows/android-build.yml` automatically builds the debug APK on pushes/pull requests to `main`/`master` (or manual dispatch) and uploads `wonderart-debug-apk` as a downloadable artifact.
+
