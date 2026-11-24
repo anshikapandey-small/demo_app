@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Wonderart</string>
+    <string name="brand_tagline">Create. Learn. Inspire.</string>
+    <string name="founder_name">Nikhil</string>
+    <string name="auth_google_cta">Continue with Google</string>
+    <string name="auth_welcome_title">Welcome to Wonderart</string>
+    <string name="auth_welcome_subtitle">Sign in with your Google account to explore live art classes, community galleries, and Creative Canvas.</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_courses">Courses</string>
+    <string name="nav_create">Create</string>
+    <string name="nav_community">Community</string>
+    <string name="nav_profile">Profile</string>
+    <string name="demo_enrollment_notice">Demonstration Enrollment • No real payment is processed</string>
+    <string name="error_generic">Something went wrong. Please try again.</string>
+</resources>

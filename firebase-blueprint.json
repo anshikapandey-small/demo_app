@@ -1,0 +1,213 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Registered Wonderart student or administrator profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "name": { "type": "string", "description": "Display name" },
+        "email": { "type": "string", "format": "email", "description": "User email" },
+        "profileImageUrl": { "type": "string", "description": "Optional profile avatar URL" },
+        "role": { "type": "string", "enum": ["student", "admin"], "description": "User role; new users always receive student" },
+        "xp": { "type": "integer", "description": "Learning progress XP" },
+        "streakDays": { "type": "integer", "description": "Current learning streak in days" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on create" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update" }
+      },
+      "required": ["uid", "name", "email", "role", "createdAt"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Art learning course offered on Wonderart.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "instructor": { "type": "string" },
+        "thumbnailKey": { "type": "string", "description": "Bundled drawable key for sample thumbnails" },
+        "thumbnailUrl": { "type": "string", "description": "Optional remote or encoded thumbnail" },
+        "category": { "type": "string" },
+        "price": { "type": "integer", "description": "Price in INR" },
+        "difficulty": { "type": "string" },
+        "duration": { "type": "string" },
+        "totalSessions": { "type": "integer" },
+        "curriculum": { "type": "array" },
+        "learningObjectives": { "type": "array" },
+        "published": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "instructor", "category", "price", "difficulty", "duration", "totalSessions", "published", "createdAt"]
+    },
+    "Enrollment": {
+      "title": "Enrollment",
+      "description": "Student course enrollment and progress tracking record.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "courseId": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "progress": { "type": "integer" },
+        "completedSessions": { "type": "integer" },
+        "completionStatus": { "type": "string", "enum": ["ongoing", "completed"] },
+        "enrollmentType": { "type": "string", "enum": ["demo", "admin_granted"] },
+        "enrolledAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentId", "courseId", "courseTitle", "progress", "completedSessions", "completionStatus", "enrollmentType", "enrolledAt"]
+    },
+    "CommunityPost": {
+      "title": "CommunityPost",
+      "description": "Student or demo artwork shared in the Wonderart digital art gallery.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorAvatarUrl": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "drawableKey": { "type": "string" },
+        "likesCount": { "type": "integer" },
+        "commentsCount": { "type": "integer" },
+        "demo": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "flagged": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "authorName", "title", "description", "category", "likesCount", "commentsCount", "demo", "hidden", "flagged", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "Comment on a community artwork post.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "userId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "userId", "authorName", "content", "createdAt"]
+    },
+    "Like": {
+      "title": "Like",
+      "description": "User like marker on a community artwork post.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "userId", "createdAt"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "Moderation report for inappropriate community content.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "postTitle": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "reviewed", "dismissed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "postTitle", "reporterId", "reason", "status", "createdAt"]
+    },
+    "LiveClass": {
+      "title": "LiveClass",
+      "description": "Scheduled live online art class conducted via Zoom.",
+      "type": "object",
+      "properties": {
+        "courseId": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "instructor": { "type": "string" },
+        "scheduledAtMillis": { "type": "integer" },
+        "durationMinutes": { "type": "integer" },
+        "zoomMeetingId": { "type": "string" },
+        "zoomJoinUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["upcoming", "live_now", "completed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["courseId", "courseTitle", "title", "description", "instructor", "scheduledAtMillis", "durationMinutes", "zoomMeetingId", "status", "createdAt"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Teacher announcement published by Nikhil.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "authorName": { "type": "string" },
+        "courseId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "message", "authorName", "createdAt"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "User-scoped notification or live class reminder.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["class_reminder", "announcement", "community", "enrollment"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "type", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Private user profile and role data."
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/NotificationItem" },
+      "description": "User-scoped notifications and reminders."
+    },
+    "/courses/{courseId}": {
+      "schema": { "$ref": "#/entities/Course" },
+      "description": "Art courses catalog."
+    },
+    "/enrollments/{enrollmentId}": {
+      "schema": { "$ref": "#/entities/Enrollment" },
+      "description": "Student enrollments keyed by studentId_courseId."
+    },
+    "/communityPosts/{postId}": {
+      "schema": { "$ref": "#/entities/CommunityPost" },
+      "description": "Community gallery artworks."
+    },
+    "/communityPosts/{postId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/Comment" },
+      "description": "Comments on community artwork posts."
+    },
+    "/communityPosts/{postId}/likes/{likeUserId}": {
+      "schema": { "$ref": "#/entities/Like" },
+      "description": "Like records keyed by userId."
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/Report" },
+      "description": "Content moderation reports."
+    },
+    "/liveClasses/{classId}": {
+      "schema": { "$ref": "#/entities/LiveClass" },
+      "description": "Scheduled online Zoom art classes."
+    },
+    "/announcements/{announcementId}": {
+      "schema": { "$ref": "#/entities/Announcement" },
+      "description": "Teacher announcements."
+    }
+  }
+}

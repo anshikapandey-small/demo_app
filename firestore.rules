@@ -1,0 +1,448 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        ('email_verified' in request.auth.token &&
+         request.auth.token.email_verified == true &&
+         'email' in request.auth.token &&
+         request.auth.token.email == 'letswork2007@gmail.com')
+      );
+    }
+
+    // --- Validation Helpers ---
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+             data.role in ['student', 'admin'] &&
+             (!('profileImageUrl' in data) || (data.profileImageUrl is string && data.profileImageUrl.size() <= 50000)) &&
+             (!('xp' in data) || (data.xp is int && data.xp >= 0 && data.xp <= 1000000)) &&
+             (!('streakDays' in data) || (data.streakDays is int && data.streakDays >= 0 && data.streakDays <= 36500));
+    }
+
+    function isValidCourse(data) {
+      return data.title is string && data.title.size() >= 2 && data.title.size() <= 120 &&
+             data.description is string && data.description.size() >= 4 && data.description.size() <= 2000 &&
+             data.instructor is string && data.instructor.size() >= 2 && data.instructor.size() <= 80 &&
+             data.category is string && data.category.size() >= 2 && data.category.size() <= 50 &&
+             data.price is int && data.price >= 0 && data.price <= 1000000 &&
+             data.difficulty is string && data.difficulty.size() >= 2 && data.difficulty.size() <= 50 &&
+             data.duration is string && data.duration.size() >= 2 && data.duration.size() <= 50 &&
+             data.totalSessions is int && data.totalSessions >= 1 && data.totalSessions <= 500 &&
+             data.published is bool &&
+             (!('thumbnailKey' in data) || (data.thumbnailKey is string && data.thumbnailKey.size() <= 80)) &&
+             (!('thumbnailUrl' in data) || (data.thumbnailUrl is string && data.thumbnailUrl.size() <= 400000)) &&
+             (!('curriculum' in data) || (data.curriculum is list && data.curriculum.size() <= 40 && (data.curriculum.size() == 0 || data.curriculum[0] is string))) &&
+             (!('learningObjectives' in data) || (data.learningObjectives is list && data.learningObjectives.size() <= 25 && (data.learningObjectives.size() == 0 || data.learningObjectives[0] is string)));
+    }
+
+    function isValidEnrollment(data) {
+      return data.studentId is string && data.studentId.size() >= 1 && data.studentId.size() <= 128 &&
+             data.courseId is string && isValidId(data.courseId) &&
+             data.courseTitle is string && data.courseTitle.size() >= 2 && data.courseTitle.size() <= 120 &&
+             data.progress is int && data.progress >= 0 && data.progress <= 100 &&
+             data.completedSessions is int && data.completedSessions >= 0 && data.completedSessions <= 500 &&
+             data.completionStatus in ['ongoing', 'completed'] &&
+             data.enrollmentType in ['demo', 'admin_granted'] &&
+             (!('studentName' in data) || (data.studentName is string && data.studentName.size() <= 80));
+    }
+
+    function isValidCommunityPost(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 1000 &&
+             data.category is string && data.category.size() >= 2 && data.category.size() <= 50 &&
+             data.likesCount is int && data.likesCount >= 0 && data.likesCount <= 1000000 &&
+             data.commentsCount is int && data.commentsCount >= 0 && data.commentsCount <= 1000000 &&
+             data.demo is bool &&
+             data.hidden is bool &&
+             data.flagged is bool &&
+             (!('authorAvatarUrl' in data) || (data.authorAvatarUrl is string && data.authorAvatarUrl.size() <= 50000)) &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 450000)) &&
+             (!('drawableKey' in data) || (data.drawableKey is string && data.drawableKey.size() <= 80));
+    }
+
+    function isValidComment(data) {
+      return data.postId is string && isValidId(data.postId) &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 80 &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 500;
+    }
+
+    function isValidLike(data) {
+      return data.postId is string && isValidId(data.postId) &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128;
+    }
+
+    function isValidReport(data) {
+      return data.postId is string && isValidId(data.postId) &&
+             data.postTitle is string && data.postTitle.size() >= 1 && data.postTitle.size() <= 120 &&
+             data.reporterId is string && data.reporterId.size() >= 1 && data.reporterId.size() <= 128 &&
+             data.reason is string && data.reason.size() >= 2 && data.reason.size() <= 500 &&
+             data.status in ['pending', 'reviewed', 'dismissed'];
+    }
+
+    function isValidLiveClass(data) {
+      return data.courseId is string && isValidId(data.courseId) &&
+             data.courseTitle is string && data.courseTitle.size() >= 2 && data.courseTitle.size() <= 120 &&
+             data.title is string && data.title.size() >= 2 && data.title.size() <= 140 &&
+             data.description is string && data.description.size() >= 2 && data.description.size() <= 1000 &&
+             data.instructor is string && data.instructor.size() >= 2 && data.instructor.size() <= 80 &&
+             data.scheduledAtMillis is int && data.scheduledAtMillis > 0 &&
+             data.durationMinutes is int && data.durationMinutes >= 10 && data.durationMinutes <= 480 &&
+             data.zoomMeetingId is string && data.zoomMeetingId.size() >= 1 && data.zoomMeetingId.size() <= 64 &&
+             data.status in ['upcoming', 'live_now', 'completed', 'cancelled'] &&
+             (!('zoomJoinUrl' in data) || (data.zoomJoinUrl is string && data.zoomJoinUrl.size() <= 500));
+    }
+
+    function isValidAnnouncement(data) {
+      return data.title is string && data.title.size() >= 2 && data.title.size() <= 120 &&
+             data.message is string && data.message.size() >= 2 && data.message.size() <= 1000 &&
+             data.authorName is string && data.authorName.size() >= 2 && data.authorName.size() <= 80 &&
+             (!('courseId' in data) || (data.courseId is string && data.courseId.size() <= 128));
+    }
+
+    function isValidNotification(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 500 &&
+             data.type in ['class_reminder', 'announcement', 'community', 'enrollment'] &&
+             data.read is bool;
+    }
+
+    // --- Collection Rules ---
+
+    // Trusted Admin Registry (read own marker only; never client-writable)
+    match /admins/{uid} {
+      allow get: if isSignedIn() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    // Users (PII isolated to owner or admin)
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().uid == request.auth.uid &&
+                       incoming().role == 'student' &&
+                       incoming().keys().hasAll(['uid', 'name', 'email', 'role', 'createdAt']) &&
+                       incoming().keys().hasOnly(['uid', 'name', 'email', 'profileImageUrl', 'role', 'xp', 'streakDays', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidUser(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUser(incoming()) &&
+                       incoming().uid == existing().uid &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       (
+                         isAdmin() ||
+                         (
+                           request.auth.uid == userId &&
+                           incoming().role == existing().role &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['name', 'profileImageUrl', 'xp', 'streakDays', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if isAdmin() && isValidId(userId);
+
+      match /notifications/{notificationId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(notificationId) &&
+                         (isAdmin() || request.auth.uid == userId) &&
+                         incoming().userId == userId &&
+                         incoming().keys().hasAll(['userId', 'title', 'message', 'type', 'read', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'message', 'type', 'read', 'createdAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidNotification(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(notificationId) &&
+                         request.auth.uid == userId &&
+                         isValidNotification(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+
+        allow delete: if isSignedIn() && isValidId(notificationId) && (request.auth.uid == userId || isAdmin());
+      }
+    }
+
+    // Courses Catalog
+    match /courses/{courseId} {
+      allow get: if isSignedIn() && isValidId(courseId) && (existing().published == true || isAdmin());
+      allow list: if isSignedIn() && (resource.data.published == true || isAdmin());
+
+      allow create: if isAdmin() &&
+                       isValidId(courseId) &&
+                       incoming().keys().hasAll(['title', 'description', 'instructor', 'category', 'price', 'difficulty', 'duration', 'totalSessions', 'published', 'createdAt']) &&
+                       incoming().keys().hasOnly(['title', 'description', 'instructor', 'thumbnailKey', 'thumbnailUrl', 'category', 'price', 'difficulty', 'duration', 'totalSessions', 'curriculum', 'learningObjectives', 'published', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidCourse(incoming());
+
+      allow update: if isAdmin() &&
+                       isValidId(courseId) &&
+                       isValidCourse(incoming()) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'instructor', 'thumbnailKey', 'thumbnailUrl', 'category', 'price', 'difficulty', 'duration', 'totalSessions', 'curriculum', 'learningObjectives', 'published', 'updatedAt']);
+
+      allow delete: if isAdmin() && isValidId(courseId);
+    }
+
+    // Course Enrollments (Deterministic ID: studentId_courseId)
+    match /enrollments/{enrollmentId} {
+      allow get: if isSignedIn() && isValidId(enrollmentId) && (existing().studentId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn() &&
+                       isValidId(enrollmentId) &&
+                       isValidEnrollment(incoming()) &&
+                       exists(/databases/$(database)/documents/courses/$(incoming().courseId)) &&
+                       incoming().keys().hasAll(['studentId', 'courseId', 'courseTitle', 'progress', 'completedSessions', 'completionStatus', 'enrollmentType', 'enrolledAt']) &&
+                       incoming().keys().hasOnly(['studentId', 'studentName', 'courseId', 'courseTitle', 'progress', 'completedSessions', 'completionStatus', 'enrollmentType', 'enrolledAt', 'updatedAt']) &&
+                       incoming().enrolledAt is timestamp &&
+                       incoming().enrolledAt <= request.time &&
+                       (
+                         isAdmin() ||
+                         (
+                           enrollmentId == request.auth.uid + '_' + incoming().courseId &&
+                           incoming().studentId == request.auth.uid &&
+                           incoming().enrollmentType == 'demo' &&
+                           incoming().progress == 0 &&
+                           incoming().completedSessions == 0 &&
+                           incoming().completionStatus == 'ongoing'
+                         )
+                       );
+
+      allow update: if isSignedIn() &&
+                       isValidId(enrollmentId) &&
+                       isValidEnrollment(incoming()) &&
+                       incoming().studentId == existing().studentId &&
+                       incoming().courseId == existing().courseId &&
+                       incoming().enrolledAt == existing().enrolledAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       (
+                         isAdmin() ||
+                         (
+                           existing().studentId == request.auth.uid &&
+                           incoming().enrollmentType == existing().enrollmentType &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['progress', 'completedSessions', 'completionStatus', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if isAdmin() && isValidId(enrollmentId);
+    }
+
+    // Community Gallery Posts
+    match /communityPosts/{postId} {
+      allow get: if isSignedIn() && isValidId(postId) && (existing().hidden == false || existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.hidden == false || resource.data.userId == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn() &&
+                       isValidId(postId) &&
+                       isValidCommunityPost(incoming()) &&
+                       incoming().keys().hasAll(['userId', 'authorName', 'title', 'description', 'category', 'likesCount', 'commentsCount', 'demo', 'hidden', 'flagged', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'authorName', 'authorAvatarUrl', 'title', 'description', 'category', 'imageUrl', 'drawableKey', 'likesCount', 'commentsCount', 'demo', 'hidden', 'flagged', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       (
+                         isAdmin() ||
+                         (
+                           incoming().userId == request.auth.uid &&
+                           incoming().demo == false &&
+                           incoming().hidden == false &&
+                           incoming().flagged == false &&
+                           incoming().likesCount == 0 &&
+                           incoming().commentsCount == 0
+                         )
+                       );
+
+      allow update: if isSignedIn() &&
+                       isValidId(postId) &&
+                       isValidCommunityPost(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         isAdmin() ||
+                         // Action: Author edits artwork metadata
+                         (
+                           existing().userId == request.auth.uid &&
+                           incoming().demo == existing().demo &&
+                           incoming().hidden == existing().hidden &&
+                           incoming().updatedAt is timestamp &&
+                           incoming().updatedAt <= request.time &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'category', 'updatedAt'])
+                         ) ||
+                         // Action: Like or Unlike synced atomically with likes/{uid}
+                         (
+                           (
+                             (incoming().likesCount == existing().likesCount + 1 &&
+                              existsAfter(/databases/$(database)/documents/communityPosts/$(postId)/likes/$(request.auth.uid))) ||
+                             (incoming().likesCount == existing().likesCount - 1 &&
+                              !existsAfter(/databases/$(database)/documents/communityPosts/$(postId)/likes/$(request.auth.uid)))
+                           ) &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['likesCount'])
+                         ) ||
+                         // Action: Increment comment counter
+                         (
+                           incoming().commentsCount == existing().commentsCount + 1 &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['commentsCount'])
+                         ) ||
+                         // Action: Report post as inappropriate
+                         (
+                           incoming().flagged == true &&
+                           incoming().updatedAt is timestamp &&
+                           incoming().updatedAt <= request.time &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['flagged', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(postId) && (existing().userId == request.auth.uid || isAdmin());
+
+      match /comments/{commentId} {
+        allow get: if isSignedIn() && isValidId(commentId) && existing().postId == postId;
+        allow list: if isSignedIn() && resource.data.postId == postId;
+
+        allow create: if isSignedIn() &&
+                         isValidId(commentId) &&
+                         isValidComment(incoming()) &&
+                         incoming().postId == postId &&
+                         incoming().userId == request.auth.uid &&
+                         exists(/databases/$(database)/documents/communityPosts/$(postId)) &&
+                         incoming().keys().hasAll(['postId', 'userId', 'authorName', 'content', 'createdAt']) &&
+                         incoming().keys().hasOnly(['postId', 'userId', 'authorName', 'content', 'createdAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time;
+
+        allow delete: if isSignedIn() && isValidId(commentId) && (existing().userId == request.auth.uid || isAdmin());
+      }
+
+      match /likes/{likeUserId} {
+        allow get: if isSignedIn() && request.auth.uid == likeUserId;
+        allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == likeUserId &&
+                         isValidLike(incoming()) &&
+                         incoming().postId == postId &&
+                         incoming().userId == request.auth.uid &&
+                         exists(/databases/$(database)/documents/communityPosts/$(postId)) &&
+                         incoming().keys().hasAll(['postId', 'userId', 'createdAt']) &&
+                         incoming().keys().hasOnly(['postId', 'userId', 'createdAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time;
+
+        allow delete: if isSignedIn() && request.auth.uid == likeUserId;
+      }
+    }
+
+    // Content Moderation Reports
+    match /reports/{reportId} {
+      allow get: if isSignedIn() && isValidId(reportId) && (existing().reporterId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.reporterId == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn() &&
+                       isValidId(reportId) &&
+                       isValidReport(incoming()) &&
+                       incoming().reporterId == request.auth.uid &&
+                       incoming().status == 'pending' &&
+                       exists(/databases/$(database)/documents/communityPosts/$(incoming().postId)) &&
+                       incoming().keys().hasAll(['postId', 'postTitle', 'reporterId', 'reason', 'status', 'createdAt']) &&
+                       incoming().keys().hasOnly(['postId', 'postTitle', 'reporterId', 'reason', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time;
+
+      allow update: if isAdmin() &&
+                       isValidId(reportId) &&
+                       isValidReport(incoming()) &&
+                       incoming().reporterId == existing().reporterId &&
+                       incoming().postId == existing().postId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+
+      allow delete: if isAdmin() && isValidId(reportId);
+    }
+
+    // Live Online Classes (Zoom)
+    match /liveClasses/{classId} {
+      allow get: if isSignedIn() && isValidId(classId) && (existing().status in ['upcoming', 'live_now', 'completed'] || isAdmin());
+      allow list: if isSignedIn() && (resource.data.status in ['upcoming', 'live_now', 'completed'] || isAdmin());
+
+      allow create: if isAdmin() &&
+                       isValidId(classId) &&
+                       isValidLiveClass(incoming()) &&
+                       exists(/databases/$(database)/documents/courses/$(incoming().courseId)) &&
+                       incoming().keys().hasAll(['courseId', 'courseTitle', 'title', 'description', 'instructor', 'scheduledAtMillis', 'durationMinutes', 'zoomMeetingId', 'status', 'createdAt']) &&
+                       incoming().keys().hasOnly(['courseId', 'courseTitle', 'title', 'description', 'instructor', 'scheduledAtMillis', 'durationMinutes', 'zoomMeetingId', 'zoomJoinUrl', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time;
+
+      allow update: if isAdmin() &&
+                       isValidId(classId) &&
+                       isValidLiveClass(incoming()) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp &&
+                       incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['courseId', 'courseTitle', 'title', 'description', 'instructor', 'scheduledAtMillis', 'durationMinutes', 'zoomMeetingId', 'zoomJoinUrl', 'status', 'updatedAt']);
+
+      allow delete: if isAdmin() && isValidId(classId);
+    }
+
+    // Teacher Announcements
+    match /announcements/{announcementId} {
+      allow get: if isSignedIn() && isValidId(announcementId);
+      allow list: if isSignedIn() && resource.data.authorName is string;
+
+      allow create: if isAdmin() &&
+                       isValidId(announcementId) &&
+                       isValidAnnouncement(incoming()) &&
+                       incoming().keys().hasAll(['title', 'message', 'authorName', 'createdAt']) &&
+                       incoming().keys().hasOnly(['title', 'message', 'authorName', 'courseId', 'createdAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time;
+
+      allow update, delete: if isAdmin() && isValidId(announcementId);
+    }
+  }
+}

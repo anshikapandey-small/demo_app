@@ -1,0 +1,6 @@
+{
+  "name": "Wonderart",
+  "description": "Online art-learning platform with live classes, curated courses, digital art community, and a Creative Canvas drawing studio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
