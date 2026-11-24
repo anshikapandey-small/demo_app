@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "345407897175",
+    "project_id": "wonderartdemo",
+    "storage_bucket": "wonderartdemo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:345407897175:android:ca5cb5ab62cdb18ec6ad12",
+        "android_client_info": {
+          "package_name": "com.aistudio.wonderart.kxmqrp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_kmrLXu_fAJMeSV3SsWUPQnQ1VD--NXc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
